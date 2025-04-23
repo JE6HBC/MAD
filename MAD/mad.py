@@ -62,8 +62,10 @@ def update_bone_rotation():
 
 # Operators
 class AUDIO_OT_Start(bpy.types.Operator):
-    bl_idname = "audio_driver.start"
-    bl_label = "Start Audio Driver"
+    bl_idname = "wm.audio_driver_ui_start"
+    bl_label = "Start MAD"
+    bl_description = "Start MAD audio driver"
+    bl_options = {'REGISTER'}
 
     def execute(self, context):
         global stream, should_run
@@ -82,8 +84,10 @@ class AUDIO_OT_Start(bpy.types.Operator):
         return {'FINISHED'}
 
 class AUDIO_OT_Stop(bpy.types.Operator):
-    bl_idname = "audio_driver.stop"
+    bl_idname = "wm.audio_driver_ui_stop"
     bl_label = "Stop Audio Driver"
+    bl_description = "Stop MAD audio driver"
+    bl_options = {'REGISTER'}
 
     def execute(self, context):
         global stream, should_run
@@ -113,8 +117,8 @@ class AUDIO_PT_MicDriverPanel(bpy.types.Panel):
         layout.prop(s, "update_interval")
 
         row = layout.row()
-        row.operator("audio_driver.start", text="Start")
-        row.operator("audio_driver.stop", text="Stop")
+        row.operator("wm.audio_driver_ui_start", text="Start")
+        row.operator("wm.audio_driver_ui_stop", text="Stop")
 
 # Register
 classes = (
