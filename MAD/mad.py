@@ -38,6 +38,14 @@ class AudioRigSettings(bpy.types.PropertyGroup):
         description="Data path to drive (e.g. 'location.x', 'rotation_euler.z', 'scale[0]')",
         default="location.x"
     )
+    bone_name: bpy.props.EnumProperty(
+        name="Bone",
+        description="Select bone to drive (if Armature)",
+        items=lambda self, context: (
+            [(b.name, b.name, "") for b in self.object_ref.pose.bones]
+            if self.object_ref and self.object_ref.type == 'ARMATURE' and hasattr(self.object_ref, "pose") else []
+        )
+    )
     volume_scale: bpy.props.FloatProperty(name="Volume to Value Scale", default=1.0)
     update_interval: bpy.props.FloatProperty(name="Update Interval (s)", default=0.05, min=0.001, max=1.0)
 
@@ -58,26 +66,46 @@ def update_bone_rotation():
     if not obj:
         return s.update_interval
 
-    # Try to resolve the property path
     try:
-        # Split path for nested attributes (e.g., "location.x")
-        path = s.property_path.split('.')
-        target = obj
-        for p in path[:-1]:
-            # Handle array access like "location[0]"
-            if '[' in p and ']' in p:
-                arr_name, idx = p[:-1].split('[')
-                target = getattr(target, arr_name)[int(idx)]
+        # If Armature and bone_name is set, drive the bone property
+        if obj.type == 'ARMATURE' and s.bone_name:
+            bone = obj.pose.bones.get(s.bone_name)
+            if bone:
+                # Default to driving rotation_euler.x, but allow property_path override
+                path = s.property_path.split('.')
+                target = bone
+                for p in path[:-1]:
+                    if '[' in p and ']' in p:
+                        arr_name, idx = p[:-1].split('[')
+                        target = getattr(target, arr_name)[int(idx)]
+                    else:
+                        target = getattr(target, p)
+                last = path[-1]
+                if '[' in last and ']' in last:
+                    arr_name, idx = last[:-1].split('[')
+                    arr = getattr(target, arr_name)
+                    arr[int(idx)] = current_volume * s.volume_scale
+                else:
+                    setattr(target, last, current_volume * s.volume_scale)
             else:
-                target = getattr(target, p)
-        last = path[-1]
-        # Handle array access in the last part
-        if '[' in last and ']' in last:
-            arr_name, idx = last[:-1].split('[')
-            arr = getattr(target, arr_name)
-            arr[int(idx)] = current_volume * s.volume_scale
+                print("Bone not found")
         else:
-            setattr(target, last, current_volume * s.volume_scale)
+            # Drive the property on the object itself
+            path = s.property_path.split('.')
+            target = obj
+            for p in path[:-1]:
+                if '[' in p and ']' in p:
+                    arr_name, idx = p[:-1].split('[')
+                    target = getattr(target, arr_name)[int(idx)]
+                else:
+                    target = getattr(target, p)
+            last = path[-1]
+            if '[' in last and ']' in last:
+                arr_name, idx = last[:-1].split('[')
+                arr = getattr(target, arr_name)
+                arr[int(idx)] = current_volume * s.volume_scale
+            else:
+                setattr(target, last, current_volume * s.volume_scale)
     except Exception as e:
         print(f"Failed to set property: {e}")
 
@@ -135,6 +163,8 @@ class AUDIO_PT_MicDriverPanel(bpy.types.Panel):
 
         layout.prop(s, "mic_list")
         layout.prop(s, "object_ref")
+        if s.object_ref and s.object_ref.type == 'ARMATURE':
+            layout.prop(s, "bone_name")
         layout.prop(s, "property_path")
         layout.prop(s, "volume_scale")
         layout.prop(s, "update_interval")
