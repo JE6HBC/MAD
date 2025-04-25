@@ -1,6 +1,6 @@
 bl_info = {
     "name": "MAD (Microphone Audio Rig Driver)",
-    "blender": (4, 3, 2),
+    "blender": (4, 2, 0),
     "category": "Animation"
 }
 
@@ -28,10 +28,18 @@ class AudioRigSettings(bpy.types.PropertyGroup):
         description="Select input device",
         items=get_microphone_items
     )
-    object_name: bpy.props.StringProperty(name="Armature Object", default="SemiBot_ARM")
-    bone_name: bpy.props.StringProperty(name="Bone Name", default="funny_hinge")
-    volume_scale: bpy.props.FloatProperty(name="Volume to Rotation Scale", default=-2.0)
-    update_interval: bpy.props.FloatProperty(name="Update Interval (s)", default=0.05, min=0.01, max=1.0)
+    object_ref: bpy.props.PointerProperty(
+        name="Object",
+        type=bpy.types.Object,
+        description="Select the target object"
+    )
+    property_path: bpy.props.StringProperty(
+        name="Property Path",
+        description="Data path to drive (e.g. 'location.x', 'rotation_euler.z', 'scale[0]')",
+        default="location.x"
+    )
+    volume_scale: bpy.props.FloatProperty(name="Volume to Value Scale", default=1.0)
+    update_interval: bpy.props.FloatProperty(name="Update Interval (s)", default=0.05, min=0.001, max=1.0)
 
 # Audio callback
 def audio_callback(indata, frames, time, status):
@@ -46,17 +54,32 @@ def update_bone_rotation():
         return None
 
     s = bpy.context.scene.audio_rig_settings
-    armature = bpy.data.objects.get(s.object_name)
-    if not armature:
-        return s.update_interval
-    bone = armature.pose.bones.get(s.bone_name)
-    if not bone:
+    obj = s.object_ref
+    if not obj:
         return s.update_interval
 
-    # Apply volume to X rotation
-    rot = list(bone.rotation_euler)
-    rot[0] = current_volume * s.volume_scale
-    bone.rotation_euler = rot
+    # Try to resolve the property path
+    try:
+        # Split path for nested attributes (e.g., "location.x")
+        path = s.property_path.split('.')
+        target = obj
+        for p in path[:-1]:
+            # Handle array access like "location[0]"
+            if '[' in p and ']' in p:
+                arr_name, idx = p[:-1].split('[')
+                target = getattr(target, arr_name)[int(idx)]
+            else:
+                target = getattr(target, p)
+        last = path[-1]
+        # Handle array access in the last part
+        if '[' in last and ']' in last:
+            arr_name, idx = last[:-1].split('[')
+            arr = getattr(target, arr_name)
+            arr[int(idx)] = current_volume * s.volume_scale
+        else:
+            setattr(target, last, current_volume * s.volume_scale)
+    except Exception as e:
+        print(f"Failed to set property: {e}")
 
     return s.update_interval  # reschedule
 
@@ -111,8 +134,8 @@ class AUDIO_PT_MicDriverPanel(bpy.types.Panel):
         s = context.scene.audio_rig_settings
 
         layout.prop(s, "mic_list")
-        layout.prop(s, "object_name")
-        layout.prop(s, "bone_name")
+        layout.prop(s, "object_ref")
+        layout.prop(s, "property_path")
         layout.prop(s, "volume_scale")
         layout.prop(s, "update_interval")
 

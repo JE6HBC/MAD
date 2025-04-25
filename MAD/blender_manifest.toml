@@ -3,7 +3,7 @@ schema_version = "1.0.0"
 # Example of manifest file for a Blender extension
 # Change the values according to your extension
 id = "MAD"
-version = "0.1.3"
+version = "0.1.4"
 name = "MAD (Microphone Audio Driver)"
 tagline = "Use your Microphone as an Animation Driver in Blender"
 maintainer = "F1dg3t <f1dg3t.rah@gmail.com>"
