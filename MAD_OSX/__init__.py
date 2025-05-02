@@ -12,7 +12,8 @@ import bpy
 from . import main, operator, panel
 
 def register():
-    main  # import to trigger internal setup
+    from .main import ensure_audio_level_property
+    ensure_audio_level_property()
     operator.register()
     panel.register()
 

@@ -61,6 +61,13 @@ class AUDIO_PT_Panel(bpy.types.Panel):
         row.operator("wm.audio_driver_ui_start")
         row.operator("wm.audio_driver_ui_stop")
 
+        # Activity indicator and audio level bar
+        if props.running:
+            layout.label(text="Audio Driver: ACTIVE", icon='PLAY')
+            layout.prop(context.scene, '["mad_audio_level"]', text="Audio Level", slider=True)
+        else:
+            layout.label(text="Audio Driver: Inactive", icon='PAUSE')
+
 class AUDIO_AddonPreferences(bpy.types.AddonPreferences):
     bl_idname = __name__
 
@@ -71,10 +78,25 @@ def register():
     bpy.utils.register_class(AudioDriverProperties)
     bpy.utils.register_class(AUDIO_PT_Panel)
     bpy.utils.register_class(AUDIO_AddonPreferences)
+
     bpy.types.Scene.audio_driver_props = bpy.props.PointerProperty(type=AudioDriverProperties)
+
+    # Add UI float property for real-time volume level
+    if not hasattr(bpy.types.Scene, "mad_audio_level"):
+        bpy.types.Scene.mad_audio_level = bpy.props.FloatProperty(
+            name="Audio Level",
+            description="Current audio input level",
+            default=0.0,
+            min=0.0,
+            max=1.0
+        )
 
 def unregister():
     bpy.utils.unregister_class(AudioDriverProperties)
     bpy.utils.unregister_class(AUDIO_PT_Panel)
     bpy.utils.unregister_class(AUDIO_AddonPreferences)
-    del bpy.types.Scene.audio_driver_props
+
+    if hasattr(bpy.types.Scene, "audio_driver_props"):
+        del bpy.types.Scene.audio_driver_props
+    if hasattr(bpy.types.Scene, "mad_audio_level"):
+        del bpy.types.Scene.mad_audio_level

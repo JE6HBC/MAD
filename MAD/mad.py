@@ -1,5 +1,5 @@
 bl_info = {
-    "name": "MAD (Microphone Audio Rig Driver)",
+    "name": "MAD (Microphone Audio Driver)",
     "blender": (4, 2, 0),
     "category": "Animation"
 }
@@ -63,6 +63,9 @@ def update_bone_rotation():
 
     s = bpy.context.scene.audio_rig_settings
     obj = s.object_ref
+    # Update the UI audio level property
+    bpy.context.scene["mad_audio_level"] = current_volume
+
     if not obj:
         return s.update_interval
 
@@ -160,6 +163,7 @@ class AUDIO_PT_MicDriverPanel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         s = context.scene.audio_rig_settings
+        global should_run, current_volume
 
         layout.prop(s, "mic_list")
         layout.prop(s, "object_ref")
@@ -173,6 +177,34 @@ class AUDIO_PT_MicDriverPanel(bpy.types.Panel):
         row.operator("wm.audio_driver_ui_start", text="Start")
         row.operator("wm.audio_driver_ui_stop", text="Stop")
 
+        # Indicator for active state and audio level
+        if should_run:
+            layout.label(text="Audio Driver: ACTIVE", icon='PLAY')
+            # Draw a progress bar for the current audio level
+            layout.prop(
+                context.scene, 
+                '["mad_audio_level"]', 
+                text="Audio Level", 
+                slider=True
+            )
+        else:
+            layout.label(text="Audio Driver: Inactive", icon='PAUSE')
+
+# --- Add a property to hold the audio level for UI updates ---
+def update_audio_level(self, context):
+    pass  # Dummy update, not used
+
+def ensure_audio_level_property():
+    if not hasattr(bpy.types.Scene, "mad_audio_level"):
+        bpy.types.Scene.mad_audio_level = bpy.props.FloatProperty(
+            name="Audio Level",
+            description="Current audio input level",
+            default=0.0,
+            min=0.0,
+            max=1.0,
+            update=update_audio_level
+        )
+
 # Register
 classes = (
     AudioRigSettings,
@@ -182,6 +214,7 @@ classes = (
 )
 
 def register():
+    ensure_audio_level_property()
     for cls in classes:
         bpy.utils.register_class(cls)
     bpy.types.Scene.audio_rig_settings = bpy.props.PointerProperty(type=AudioRigSettings)
@@ -190,7 +223,8 @@ def unregister():
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
     del bpy.types.Scene.audio_rig_settings
+    if hasattr(bpy.types.Scene, "mad_audio_level"):
+        del bpy.types.Scene.mad_audio_level
 
 if __name__ == "__main__":
     register()
-    

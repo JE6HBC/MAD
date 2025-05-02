@@ -18,7 +18,12 @@ def update_driver():
             volume = get_volume(props.stream.read(1024)[0])
             value = max(0.0, min(1.0, volume * props.volume_scale))
 
+            # Update the driven property
             obj.path_resolve(props.data_path, False)[:] = props.default_value + value
+
+            # Update the audio level bar in the UI
+            bpy.context.scene["mad_audio_level"] = value
+
             time.sleep(props.update_interval)
         except Exception as e:
             print(f"Audio driver error: {e}")
