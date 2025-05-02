@@ -2,17 +2,21 @@ bl_info = {
     "name": "MAD (Microphone Audio Driver)",
     "author": "F1dg3t",
     "version": (0, 1, 5),
-    "blender": (4, 2, 0),
+    "blender": (4, 3, 2),
     "location": "View3D > Sidebar > MAD",
     "description": "Use your Microphone as an Animation Driver in Blender.",
     "category": "Animation",
 }
 
 import bpy
-from . import mad
+from . import main, operator, panel
 
 def register():
-    mad.register()
+    main  # import to trigger internal setup
+    operator.register()
+    panel.register()
 
 def unregister():
-    mad.unregister()
+    panel.unregister()
+    operator.unregister()
+    main  # no explicit unregister needed

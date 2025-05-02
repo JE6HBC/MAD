@@ -35,8 +35,8 @@ class AudioRigSettings(bpy.types.PropertyGroup):
     )
     property_path: bpy.props.StringProperty(
         name="Property Path",
-        description="Data path to drive (e.g. 'location.x', 'rotation_euler.z', 'scale[0]')",
-        default="location.x"
+        description="Data path to drive (e.g. 'location.0', 'rotation_euler.2', 'scale[0]')",
+        default="location.0"
     )
     bone_name: bpy.props.EnumProperty(
         name="Bone",
@@ -193,3 +193,4 @@ def unregister():
 
 if __name__ == "__main__":
     register()
+    
