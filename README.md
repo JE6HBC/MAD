@@ -2,7 +2,7 @@
 Microphone Audio Driver: A driver assignment tool for Blender.
 
 
-# Swittching to v0.1.5 on MacOS
+# Switching to v0.1.5 on MacOS
 ## Uninstalling MAD (Microphone Audio Driver) on macOS
 
 Follow these steps to fully remove the MAD addon from Blender.
