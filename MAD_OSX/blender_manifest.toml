@@ -37,11 +37,11 @@ license = [
 
 # Optional: bundle 3rd party Python modules.
 # https://docs.blender.org/manual/en/dev/extensions/python_wheels.html
-# wheels = [
-#   "./wheels/soundfile-0.13.1-py2.py3-none-macosx_10_9_x86_64.whl",
-#   "./wheels/sounddevice-0.5.1-py3-none-macosx_10_6_x86_64.macosx_10_6_universal2.whl",
-#   "./wheels/cffi-1.17.1-cp311-cp311-macosx_10_9_x86_64.whl"
-# ]
+wheels = [
+  "./wheels/pycparser-2.22-py3-none-any.whl",
+  "./wheels/sounddevice-0.5.1-py3-none-macosx_10_6_x86_64.macosx_10_6_universal2.whl",
+  "./wheels/cffi-1.17.1-cp311-cp311-macosx_10_9_x86_64.whl"
+]
 
 # Optional: add-ons can list which resources they will require:
 # * files (for access of any filesystem operations)
