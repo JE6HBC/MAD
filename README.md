@@ -52,5 +52,9 @@ This will print the path to Blender’s internal Python.
 
 Replace /path/to/blender/python/bin/python3.11 with the path you got from step 2.
 
-## ✅ Installing v0.1.5 OSX
-MAD should now be fully uninstalled from your system. Now go get the latest version from the [releases tab](https://github.com/F1dg3tXD/MAD/releases) and install it like a legacy addon.
+# ✅ Installing v0.1.5 OSX
+MAD should now be fully uninstalled from your system. 
+
+- Now go get the latest version from the [releases tab](https://github.com/F1dg3tXD/MAD/releases).
+- Unzip the file and look for `install_mad_dependencies.py` and load that into Blender's scripting workspace and run it.
+- Then install the addon from the zip file.
