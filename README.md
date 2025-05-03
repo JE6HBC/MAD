@@ -58,3 +58,4 @@ MAD should now be fully uninstalled from your system.
 - Now go get the latest version from the [releases tab](https://github.com/F1dg3tXD/MAD/releases).
 - Unzip the file and look for `install_mad_dependencies.py` and load that into Blender's scripting workspace and run it.
 - Then install the addon from the zip file.
+-  Close Blender and start it from `~Applications/Blender/Contents/MacOS/Blender`
