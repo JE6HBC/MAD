@@ -7,6 +7,8 @@ bl_info = {
 import bpy
 import sounddevice as sd
 import numpy as np
+import sys
+import locale
 
 # Globals
 current_volume = 0.0
@@ -16,10 +18,55 @@ should_run = False
 # UI Properties
 def get_microphone_items(self, context):
     items = []
-    for i, device in enumerate(sd.query_devices()):
-        if device["max_input_channels"] > 0:
-            label = f"{i}:{device['name']}"
-            items.append((label, device["name"], ""))
+    try:
+        devices = sd.query_devices()
+        for i, device in enumerate(devices):
+            if device["max_input_channels"] > 0:
+                try:
+                    # Handle device name encoding issues
+                    device_name = device["name"]
+                    if isinstance(device_name, bytes):
+                        # Try to decode bytes to string
+                        try:
+                            device_name = device_name.decode('utf-8')
+                        except UnicodeDecodeError:
+                            try:
+                                device_name = device_name.decode('shift_jis')
+                            except UnicodeDecodeError:
+                                try:
+                                    device_name = device_name.decode('cp932')
+                                except UnicodeDecodeError:
+                                    device_name = f"Device {i}"
+                    
+                    # Clean up device name - remove null characters and control characters
+                    device_name = ''.join(char for char in device_name if ord(char) >= 32 and ord(char) != 127)
+                    device_name = device_name.strip()
+                    
+                    # Fallback name if cleaning resulted in empty string
+                    if not device_name:
+                        device_name = f"Audio Device {i}"
+                    
+                    # Truncate very long names
+                    if len(device_name) > 50:
+                        device_name = device_name[:47] + "..."
+                    
+                    label = f"{i}: {device_name}"
+                    items.append((label, device_name, f"Input device {i}"))
+                    
+                except Exception as e:
+                    print(f"[MAD] Error processing device {i}: {e}")
+                    # Fallback item
+                    items.append((f"{i}: Audio Device {i}", f"Audio Device {i}", f"Input device {i}"))
+                    
+    except Exception as e:
+        print(f"[MAD] Error querying audio devices: {e}")
+        # Add a fallback item
+        items.append(("0: Default Audio Device", "Default Audio Device", "Default input device"))
+    
+    # Ensure we always have at least one item
+    if not items:
+        items.append(("0: No Audio Devices", "No Audio Devices", "No audio input devices found"))
+        
     return items
 
 class AudioRigSettings(bpy.types.PropertyGroup):
@@ -52,8 +99,14 @@ class AudioRigSettings(bpy.types.PropertyGroup):
 # Audio callback
 def audio_callback(indata, frames, time, status):
     global current_volume
-    volume = np.linalg.norm(indata) / frames
-    current_volume = min(volume, 1.0)  # clamp to 1.0 for safety
+    try:
+        if status:
+            print(f"[MAD] Audio stream status: {status}")
+        volume = np.linalg.norm(indata) / frames
+        current_volume = min(volume, 1.0)  # clamp to 1.0 for safety
+    except Exception as e:
+        print(f"[MAD] Error in audio callback: {e}")
+        current_volume = 0.0
 
 # Blender-safe update loop
 def update_bone_rotation():
@@ -115,6 +168,21 @@ def update_bone_rotation():
     return s.update_interval  # reschedule
 
 # Operators
+class AUDIO_OT_RefreshDevices(bpy.types.Operator):
+    bl_idname = "wm.audio_refresh_devices"
+    bl_label = "Refresh Audio Devices"
+    bl_description = "Refresh the list of available audio input devices"
+    bl_options = {'REGISTER'}
+
+    def execute(self, context):
+        try:
+            # Force refresh of device list
+            context.scene.audio_rig_settings.mic_list = context.scene.audio_rig_settings.mic_list
+            self.report({'INFO'}, "Audio device list refreshed")
+        except Exception as e:
+            self.report({'ERROR'}, f"Failed to refresh devices: {e}")
+        return {'FINISHED'}
+
 class AUDIO_OT_Start(bpy.types.Operator):
     bl_idname = "wm.audio_driver_ui_start"
     bl_label = "Start MAD"
@@ -127,14 +195,30 @@ class AUDIO_OT_Start(bpy.types.Operator):
         should_run = True
 
         try:
-            mic_index = int(s.mic_list.split(":")[0])
+            # Extract device index more safely
+            mic_string = s.mic_list
+            if ":" in mic_string:
+                try:
+                    mic_index = int(mic_string.split(":")[0])
+                except ValueError:
+                    self.report({'ERROR'}, "Invalid microphone selection")
+                    return {'CANCELLED'}
+            else:
+                mic_index = 0  # Default to first device
+                
+            print(f"[MAD] Attempting to start audio stream with device index: {mic_index}")
+            
             stream = sd.InputStream(device=mic_index, channels=1, callback=audio_callback)
             stream.start()
+            print(f"[MAD] Audio stream started successfully on device {mic_index}")
+            
         except Exception as e:
+            print(f"[MAD] Failed to start mic stream: {e}")
             self.report({'ERROR'}, f"Failed to start mic stream: {e}")
             return {'CANCELLED'}
 
         bpy.app.timers.register(update_bone_rotation)
+        self.report({'INFO'}, "MAD audio driver started successfully")
         return {'FINISHED'}
 
 class AUDIO_OT_Stop(bpy.types.Operator):
@@ -146,10 +230,18 @@ class AUDIO_OT_Stop(bpy.types.Operator):
     def execute(self, context):
         global stream, should_run
         should_run = False
+        
         if stream:
-            stream.stop()
-            stream.close()
-            stream = None
+            try:
+                stream.stop()
+                stream.close()
+                print("[MAD] Audio stream stopped successfully")
+            except Exception as e:
+                print(f"[MAD] Error stopping stream: {e}")
+            finally:
+                stream = None
+                
+        self.report({'INFO'}, "MAD audio driver stopped")
         return {'FINISHED'}
 
 # UI Panel
@@ -165,7 +257,11 @@ class AUDIO_PT_MicDriverPanel(bpy.types.Panel):
         s = context.scene.audio_rig_settings
         global should_run, current_volume
 
-        layout.prop(s, "mic_list")
+        # Add device refresh button
+        row = layout.row()
+        row.prop(s, "mic_list")
+        refresh_op = row.operator("wm.audio_refresh_devices", text="", icon='FILE_REFRESH')
+        
         layout.prop(s, "object_ref")
         if s.object_ref and s.object_ref.type == 'ARMATURE':
             layout.prop(s, "bone_name")
@@ -181,12 +277,15 @@ class AUDIO_PT_MicDriverPanel(bpy.types.Panel):
         if should_run:
             layout.label(text="Audio Driver: ACTIVE", icon='PLAY')
             # Draw a progress bar for the current audio level
-            layout.prop(
-                context.scene, 
-                '["mad_audio_level"]', 
-                text="Audio Level", 
-                slider=True
-            )
+            try:
+                layout.prop(
+                    context.scene, 
+                    '["mad_audio_level"]', 
+                    text="Audio Level", 
+                    slider=True
+                )
+            except:
+                layout.label(text=f"Audio Level: {current_volume:.2f}")
         else:
             layout.label(text="Audio Driver: Inactive", icon='PAUSE')
 
@@ -208,6 +307,7 @@ def ensure_audio_level_property():
 # Register
 classes = (
     AudioRigSettings,
+    AUDIO_OT_RefreshDevices,
     AUDIO_OT_Start,
     AUDIO_OT_Stop,
     AUDIO_PT_MicDriverPanel,
